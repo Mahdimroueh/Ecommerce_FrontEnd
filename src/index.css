@@ -1,0 +1,31 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.menu-dropdown {
+  @apply bg-white shadow-lg rounded-md py-2 mt-2 w-48;
+}
+
+body {
+  font-family: futura-pt, Tahoma, Geneva, Verdana, Arial, sans-serif;
+  overflow: hidden;
+}
+/* Hide scrollbar for WebKit browsers */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for Firefox */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+}
+
+/* For general overflow settings */
+.overflow-scroll {
+  overflow-y: scroll; /* Enables scrolling */
+}

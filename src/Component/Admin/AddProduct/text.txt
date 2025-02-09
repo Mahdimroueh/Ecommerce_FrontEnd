@@ -1,0 +1,391 @@
+import { useState } from "react";
+import { customFetch } from "../../../api/AxiosFetch";
+import useCategory from "../../../api/FetchCategory";
+import useBrand from "../../../api/FetchBrand";
+import useSizeOption from "../../../api/FetchSizeOption";
+import Loading from "../../Loading";
+
+const ProductForm = () => {
+  const [product, setProduct] = useState({
+    name: "",
+    CategoryId: 1, //for now only
+    BrandId: "",
+    desc: "",
+    careInstructions: "",
+    about: "",
+    colorVariation: [],
+  });
+  const addColorVariation = () => {
+    setProduct({
+      ...product,
+      colorVariation: [
+        ...product.colorVariation,
+        {
+          name: "",
+          originalPrice: 0,
+          salePrice: 0,
+          images: [],
+          sizeVariations: [],
+        },
+      ],
+    });
+  };
+
+  const { data: categories, isLoading: categoryIsLoading } = useCategory();
+  const { data: brand, isLoading: brandIsLoading } = useBrand();
+  const { data: sizes, isLoading: sizesIsLoading } = useSizeOption(
+    product.CategoryId || 1
+  );
+
+  const handleProductChange = (e) => {
+    setProduct({ ...product, [e.target.name]: e.target.value });
+  };
+
+  const addSizeVariation = (colorIndex) => {
+    const updatedColorVariation = [...product.colorVariation];
+    updatedColorVariation[colorIndex].sizeVariations.push({
+      sizeOptionId: "",
+      quantityInStock: 0,
+      code: "",
+    });
+    setProduct({ ...product, colorVariation: updatedColorVariation });
+  };
+
+  const removeColorVariation = (colorIndex) => {
+    const updatedColorVariation = product.colorVariation.filter(
+      (_, index) => index !== colorIndex
+    );
+    setProduct({ ...product, colorVariation: updatedColorVariation });
+  };
+
+  const removeSizeVariation = (colorIndex, sizeIndex) => {
+    const updatedColorVariation = [...product.colorVariation];
+    updatedColorVariation[colorIndex].sizeVariations = updatedColorVariation[
+      colorIndex
+    ].sizeVariations.filter((_, index) => index !== sizeIndex);
+    setProduct({ ...product, colorVariation: updatedColorVariation });
+  };
+
+  const handleColorChange = (index, field, value) => {
+    const updatedColors = [...product.colorVariation];
+    updatedColors[index][field] = value;
+    setProduct({ ...product, colorVariation: updatedColors });
+  };
+
+  const handleSizeChange = (colorIndex, sizeIndex, field, value) => {
+    const updatedColors = [...product.colorVariation];
+    updatedColors[colorIndex].sizeVariations[sizeIndex][field] = value;
+    setProduct({ ...product, colorVariation: updatedColors });
+  };
+
+  const handleFileInputChange = (colorIndex, e) => {
+    const files = Array.from(e.target.files);
+    const updatedColors = [...product.colorVariation];
+
+    const filePreviews = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file), // Create a preview URL for the image
+    }));
+    console.log(filePreviews);
+    updatedColors[colorIndex].images.push(...filePreviews); // Store both the file and preview
+    setProduct({ ...product, colorVariation: updatedColors });
+  };
+
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(",")[1]); // Extract base64 content
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const removeImage = (colorIndex, imageIndex) => {
+    const updatedColors = [...product.colorVariation];
+    updatedColors[colorIndex].images = updatedColors[colorIndex].images.filter(
+      (_, idx) => idx !== imageIndex
+    );
+    setProduct({ ...product, colorVariation: updatedColors });
+  };
+
+  const postProduct = async () => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const token = user?.token;
+
+    const productDto = {
+      name: product.name,
+      categoryId: product.CategoryId - 0,
+      brandId: product.BrandId - 0,
+      desc: product.desc,
+      careInstructions: product.careInstructions || "",
+      about: product.about || "",
+      colorVariations: await Promise.all(
+        product.colorVariation.map(async (color) => ({
+          colorHex: color.name,
+          originalPrice: parseFloat(color.originalPrice) || 0.0,
+          salePrice: parseFloat(color.salePrice) || 0.0,
+          images: await Promise.all(
+            color.images.map((file) =>
+              typeof file === "string" ? file : fileToBase64(file.file)
+            )
+          ), // Encode files to base64 if not already encoded
+          sizeVariations: color.sizeVariations.map((size) => ({
+            sizeOptionId: size.sizeOptionId,
+            quantityInStock: parseInt(size.quantityInStock) || 0,
+            code: size.code || "",
+          })),
+        }))
+      ),
+    };
+    // const finalPayload = { productDto: productDto };
+    // console.log(finalPayload);
+    try {
+      const response = await customFetch.post("/admin/products", productDto, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      console.log("Product saved successfully!", response.data);
+    } catch (error) {
+      console.error("Error while saving product:", error.response || error);
+    }
+  };
+
+  if (categoryIsLoading || brandIsLoading || sizesIsLoading) {
+    return <Loading />;
+  }
+
+  return (
+    <div className="bg-white shadow-md rounded-lg p-6">
+      <h2 className="text-3xl font-bold text-gray-800 mb-6">
+        Create New Product
+      </h2>
+
+      <div className="space-y-4 mb-6">
+        <input
+          type="text"
+          name="name"
+          value={product.name}
+          onChange={handleProductChange}
+          placeholder="Product Name"
+          className="w-full  px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+        />
+        <select
+          name="BrandId"
+          value={product.BrandId || ""}
+          onChange={handleProductChange}
+          className="w-full px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+        >
+          <option value="">Select Brand</option>
+          {brand.map((el) => (
+            <option key={el.id} value={el.id}>
+              {el.name}
+            </option>
+          ))}
+        </select>
+        <select
+          name="CategoryId"
+          value={product.CategoryId || ""}
+          onChange={handleProductChange}
+          className="w-full px-4 py-2 border rounded-md focus:ring focus:ring-blue-300 "
+        >
+          {/* <option value="">Select Category</option> */}
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.categoryName}
+            </option>
+          ))}
+        </select>
+        <textarea
+          name="desc"
+          value={product.desc}
+          onChange={handleProductChange}
+          placeholder="Description"
+          className="w-full px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+          rows={3}
+        ></textarea>
+        <textarea
+          name="careInstructions"
+          value={product.careInstructions}
+          onChange={handleProductChange}
+          placeholder="Care Instructions"
+          className="w-full px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+          rows={2}
+        ></textarea>
+        <textarea
+          name="about"
+          value={product.about}
+          onChange={handleProductChange}
+          placeholder="About"
+          className="w-full px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+          rows={2}
+        ></textarea>
+      </div>
+
+      <h3 className="text-xl font-bold text-gray-700 mb-4">Color Variations</h3>
+      <div className="space-y-6">
+        {product.colorVariation.map((color, colorIndex) => (
+          <div
+            key={colorIndex}
+            className="p-4 border rounded-lg bg-gray-50 space-y-4"
+          >
+            <div className="flex space-x-4">
+              <input
+                type="color"
+                value={color.name}
+                onChange={(e) =>
+                  handleColorChange(colorIndex, "name", e.target.value)
+                }
+                className="w-16 h-16 rounded-full border focus:ring focus:ring-blue-300"
+              />
+              <span
+                className="w-8 h-8 rounded-full border"
+                style={{ backgroundColor: color.name }}
+              ></span>
+              <input
+                type="number"
+                placeholder="Original Price"
+                value={color.originalPrice || ""}
+                onChange={(e) =>
+                  handleColorChange(colorIndex, "originalPrice", e.target.value)
+                }
+                className="w-32 px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+              />
+              <input
+                type="number"
+                placeholder="Sale Price"
+                value={color.salePrice || ""}
+                onChange={(e) =>
+                  handleColorChange(colorIndex, "salePrice", e.target.value)
+                }
+                className="w-32 px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+              />
+            </div>
+
+            <div className="flex space-x-4">
+              <label className="w-16 h-16 bg-gray-100 border-dashed border-2 border-gray-300 flex items-center justify-center cursor-pointer rounded hover:bg-gray-200">
+                <span className="text-gray-500 text-2xl font-bold">+</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFileInputChange(colorIndex, e)}
+                  multiple
+                />
+              </label>
+
+              {color.images.map((image, imageIndex) => (
+                <div
+                  key={imageIndex}
+                  className="relative w-16 h-16 bg-gray-100 border rounded overflow-hidden shadow"
+                >
+                  <img
+                    src={image.preview || image} // Use the preview URL if it exists, fallback for existing images
+                    alt={`Color Variation ${colorIndex}`}
+                    className="object-cover w-full h-full"
+                  />
+                  <button
+                    onClick={() => removeImage(colorIndex, imageIndex)}
+                    className="absolute top-1 right-1 bg-red-500 text-white text-sm rounded-full w-6 h-6 flex items-center justify-center"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-semibold">Size Variations</h4>
+              {color.sizeVariations.map((size, sizeIndex) => (
+                <div key={sizeIndex} className="flex space-x-4">
+                  <select
+                    value={size.sizeOptionId}
+                    onChange={(e) =>
+                      handleSizeChange(
+                        colorIndex,
+                        sizeIndex,
+                        "sizeOptionId",
+                        e.target.value
+                      )
+                    }
+                    className="w-32 px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+                  >
+                    {sizes.map((size) => {
+                      return (
+                        <option key={size.id} value={size.id}>
+                          {size.name}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Quantity in Stock"
+                    value={size.quantityInStock || ""}
+                    onChange={(e) =>
+                      handleSizeChange(
+                        colorIndex,
+                        sizeIndex,
+                        "quantityInStock",
+                        e.target.value
+                      )
+                    }
+                    className="w-32 px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Code"
+                    value={size.code || ""}
+                    onChange={(e) =>
+                      handleSizeChange(
+                        colorIndex,
+                        sizeIndex,
+                        "code",
+                        e.target.value
+                      )
+                    }
+                    className="w-32 px-4 py-2 border rounded-md focus:ring focus:ring-blue-300"
+                  />
+                  <button
+                    onClick={() => removeSizeVariation(colorIndex, sizeIndex)}
+                    className="px-2 py-1 bg-red-500 text-white rounded-md"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => addSizeVariation(colorIndex)}
+                className="px-3 py-1 bg-blue-500 text-white rounded-md"
+              >
+                Add Size Variation
+              </button>
+            </div>
+
+            <button
+              onClick={() => removeColorVariation(colorIndex)}
+              className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
+            >
+              Remove Color Variation
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={addColorVariation}
+          className="px-4 py-1 bg-green-500 text-white rounded-md hover:bg-green-600"
+        >
+          Add Color Variation
+        </button>
+      </div>
+
+      <button
+        onClick={postProduct}
+        className="w-full mt-6 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-md hover:bg-blue-700"
+      >
+        Save Product
+      </button>
+    </div>
+  );
+};
+
+export default ProductForm;
