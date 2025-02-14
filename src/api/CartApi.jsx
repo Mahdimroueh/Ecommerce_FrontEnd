@@ -3,7 +3,6 @@ import { customFetch } from "./AxiosFetch";
 import { toast } from "react-toastify";
 import { queryClient } from "../App";
 
-
 const useCart = () => {
   const { mutateAsync: addItem, isLoading: addItemLoading } = useMutation(
     async (data) => {
@@ -31,6 +30,7 @@ const useCart = () => {
       onSuccess: async () => {
         toast.success("updated successfully");
         await refetch();
+        queryClient.invalidateQueries("UserCart");
       },
       onError: (e) => {
         toast.error(e.response.data.message);
@@ -50,7 +50,8 @@ const useCart = () => {
       {
         onSuccess: async () => {
           toast.success("updated successfully");
-          await refetch();
+          // await refetch();
+          queryClient.invalidateQueries("UserCart");
         },
         onError: (e) => {
           toast.error(e.response.data.message);
@@ -66,7 +67,8 @@ const useCart = () => {
     {
       onSuccess: async () => {
         toast.success("deleted successfully");
-        await refetch();
+        queryClient.invalidateQueries("UserCart");
+        // await refetch();
       },
       onError: (e) => {
         toast.error(e.response.data.message);
@@ -77,13 +79,10 @@ const useCart = () => {
     data: cartData,
     isLoading: cartDataLoading,
     refetch,
-  } = useQuery(
-    ["UserCart"],
-    async () => {
-      const response = await customFetch("/user/cart");
-      return response.data;
-    },
-  );
+  } = useQuery(["UserCart"], async () => {
+    const response = await customFetch("/user/cart");
+    return response.data;
+  });
 
   return {
     deleteItem,

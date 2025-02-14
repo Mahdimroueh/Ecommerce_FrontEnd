@@ -1,16 +1,27 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import useProduct from "../../../api/FetchProduct";
 import Loading from "../../Helper/Loading";
-import { FaRegHeart } from "react-icons/fa";
+import { FaHeart, FaRegHeart } from "react-icons/fa";
 import Pagination from "./Pagination";
 import NoProductFound from "./NoProductFound";
+import useWishList from "../../../api/FetchWishList";
+import useAuth from "../../../api/Auth";
 
 const ProductGrid = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const {
+    addToWishList,
+    addItemLoading,
+    data: wishListItem,
+    wishListIsLoading,
+    wishListIsError,
+    deleteItem,
+  } = useWishList();
 
   const filterFromQueryParams = {
-    
     search: queryParams.get("search") || "",
     category: queryParams.get("category") || "",
     brand: queryParams.get("brand") || "",
@@ -19,20 +30,20 @@ const ProductGrid = () => {
     maxPrice: queryParams.get("maxPrice") || "",
     page: queryParams.get("page") || 0,
     parentCategory: queryParams.get("parentCategoryId") || "men",
-
   };
 
   const { data, isLoading, isError } = useProduct(filterFromQueryParams);
 
-  if (isLoading) {
+  if (isLoading || wishListIsLoading) {
     return <Loading />;
   }
-  if (isError) {
-    return <>an error occurred</>;
+  if (isError || wishListIsError) {
+    return <>An error occurred</>;
   }
+
   const { content: products, totalPages, totalElements, pageable } = data;
 
-  if (products.length === 0) {
+  if (!products?.length) {
     return <NoProductFound />;
   }
 
@@ -40,18 +51,30 @@ const ProductGrid = () => {
     <>
       <div className="mt-20 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         {products.map((p) => {
-          const { id, name, images, salePrice } = p;
-          let imageUrl = images[0];
-          let hoverImageUrl = images[1];
+          const {
+            id,
+            name,
+            images = [],
+            salePrice,
+            colorVariationsResponses = [],
+          } = p;
+
+          let imageUrl = images[0] || ""; // Ensure a fallback
+          let hoverImageUrl = images[1] || "";
+
+          // Determine the color variation to show
+          let colorVariation = colorVariationsResponses[0] || null;
           if (filterFromQueryParams.color) {
-            const colorVariation = p.colorVariationsResponses.find(
+            const matchedColor = colorVariationsResponses.find(
               (i) => i.colorName === filterFromQueryParams.color
             );
-            if (colorVariation) {
-              imageUrl = colorVariation.images[0];
-              hoverImageUrl = colorVariation.images[1];
+            if (matchedColor) {
+              colorVariation = matchedColor;
+              imageUrl = matchedColor.images?.[0] || imageUrl;
+              hoverImageUrl = matchedColor.images?.[1] || hoverImageUrl;
             }
           }
+
           return (
             <Link
               className="group relative border border-gray-200 p-4 sm:p-6"
@@ -61,7 +84,7 @@ const ProductGrid = () => {
               <div className="relative">
                 <img
                   src={imageUrl}
-                  alt="Product"
+                  alt={name}
                   className="aspect-square rounded-lg bg-gray-200 object-cover group-hover:opacity-75"
                 />
                 {hoverImageUrl && (
@@ -75,14 +98,34 @@ const ProductGrid = () => {
                   className="absolute right-0 bottom-4 text-xl text-white bg-black bg-opacity-50 p-2 rounded-full transition-colors duration-300 hover:bg-opacity-70"
                   onClick={(e) => {
                     e.stopPropagation();
-                    e.preventDefault(); 
-                    console.log("Added to wishlist");
+                    e.preventDefault();
+                    if (!user?.authenticated) {
+                      navigate("/login");
+                      return;
+                    }
+
+                    const isInWishlist = wishListItem?.find(
+                      (i) =>
+                        i.colorId == colorVariation?.id && i.sizeId === null
+                    );
+
+                    if (isInWishlist) {
+                      deleteItem({ id: colorVariation.id, data: false });
+                    } else {
+                      addToWishList({ colorVariationId: colorVariation.id });
+                    }
                   }}
                 >
-                  <FaRegHeart />
+                  {wishListItem?.find(
+                    (i) => i.colorId == colorVariation?.id && i.sizeId === null
+                  ) ? (
+                    <FaHeart className="text-black" />
+                  ) : (
+                    <FaRegHeart />
+                  )}
                 </button>
               </div>
-              <div className="pt-10 ">
+              <div className="pt-10">
                 <h3 className="text-lg font-medium text-gray-900">
                   <span>{name}</span>
                 </h3>

@@ -5,15 +5,25 @@ import {
   MdOutlineKeyboardArrowLeft,
   MdOutlineKeyboardArrowRight,
 } from "react-icons/md";
-import { FaMinus, FaPlus, FaRegHeart } from "react-icons/fa";
+import { FaHeart, FaMinus, FaPlus, FaRegHeart } from "react-icons/fa";
 import useCart from "../../../api/CartApi";
 import { toast } from "react-toastify";
 import useAuth from "../../../api/Auth";
 import { Navigate, useNavigate } from "react-router-dom";
+import useWishList from "../../../api/FetchWishList";
 
 const SingleProduct = ({ id }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const {
+    addToWishList,
+    data: wishListItem,
+    wishListIsLoading,
+    wishListIsError,
+    deleteItem,
+  } = useWishList();
+
+
   const [isIndexOpen, setIsIndexOpen] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [currentColorVariationIndex, setCurrentColorVariationIndex] =
@@ -64,6 +74,7 @@ const SingleProduct = ({ id }) => {
       setCurrentImageIndex(currentImageIndex + 1);
     }
   };
+
   return (
     <div className="grid w-full sm:mx-auto max-w-[900px] gap-x-10 sm:grid-cols-2  px-2 mt-10">
       <div className="relative h-[630px]">
@@ -161,8 +172,53 @@ const SingleProduct = ({ id }) => {
           >
             add to card
           </button>
-          <button className="w-12 h-12 rounded-full bg-slate-300 relative">
-            <FaRegHeart className="text-xl absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 " />
+          <button
+            disabled={wishListIsLoading}
+            className="w-12 h-12 rounded-full bg-slate-300 relative"
+            onClick={() => {
+              if (currentSizeVariationId > 0) {
+                console.log(currentColorVariant);
+                console.log(wishListItem);
+                wishListItem?.find(
+                  (item) => item.sizeId == currentSizeVariationId
+                )
+                  ? deleteItem({ id: currentSizeVariationId, data: true })
+                  : addToWishList({
+                      sizeVariationId: currentSizeVariationId,
+                    });
+              } else {
+                // console.log(currentColorVariant);
+                // console.log(wishListItem);
+                wishListItem?.find((item) => {
+                  return (
+                    item.colorId == currentColorVariant.id &&
+                    item.sizeId === null
+                  );
+                })
+                  ? deleteItem({ id: currentColorVariant.id, data: false })
+                  : addToWishList({
+                      colorVariationId: currentColorVariant.id,
+                    });
+              }
+            }}
+          >
+            {currentSizeVariationId > 0 ? (
+              wishListItem?.find(
+                (item) => item.sizeId == currentSizeVariationId
+              ) ? (
+                <FaHeart className="text-xl text-black absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2" />
+              ) : (
+                <FaRegHeart className="text-xl absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2" />
+              )
+            ) : wishListItem?.find((item) => {
+                return (
+                  item.colorId == currentColorVariant.id && item.sizeId === null
+                );
+              }) ? (
+              <FaHeart className="text-xl text-black absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2" />
+            ) : (
+              <FaRegHeart className="text-xl absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2" />
+            )}
           </button>
         </div>
         <div className="grid">
