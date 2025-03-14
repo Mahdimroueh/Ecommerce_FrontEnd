@@ -4,7 +4,6 @@ import img1 from "../assets/mw_global_gifting_moment_870x1110_v2.webp";
 import img2 from "../assets/mw_global_carhartt_moment_870x1110.avif";
 import img3 from "../assets/mw_global_new_in_moment_870x1110.avif";
 import img4 from "../assets/mw_global_asos_design_premium_moment_870x1110.avif";
-import ProductGrid from "../Component/Costumer/general/ProductGrid";
 import { Link } from "react-router-dom";
 
 const pictures = [

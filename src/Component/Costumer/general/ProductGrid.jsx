@@ -1,17 +1,20 @@
+import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { FaHeart, FaRegHeart, FaSearch } from "react-icons/fa";
 import useProduct from "../../../api/FetchProduct";
-import Loading from "../../Helper/Loading";
-import { FaHeart, FaRegHeart } from "react-icons/fa";
-import Pagination from "./Pagination";
-import NoProductFound from "./NoProductFound";
 import useWishList from "../../../api/FetchWishList";
 import useAuth from "../../../api/Auth";
+import Loading from "../../Helper/Loading";
+import Pagination from "./Pagination";
+import NoProductFound from "./NoProductFound";
 
 const ProductGrid = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const {
     addToWishList,
     addItemLoading,
@@ -35,13 +38,22 @@ const ProductGrid = () => {
   const { data, isLoading, isError } = useProduct(filterFromQueryParams);
 
   if (isLoading || wishListIsLoading) {
-    return <Loading />;
-  }
-  if (isError || wishListIsError) {
-    return <>An error occurred</>;
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <Loading />
+      </div>
+    );
   }
 
-  const { content: products, totalPages, totalElements, pageable } = data;
+  if (isError || wishListIsError) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-center">
+        An error occurred while loading products. Please try again later.
+      </div>
+    );
+  }
+
+  const { content: products, totalPages, pageable } = data;
 
   if (!products?.length) {
     return <NoProductFound />;
@@ -49,17 +61,17 @@ const ProductGrid = () => {
 
   return (
     <>
-      <div className="mt-20 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {products.map((p) => {
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+        {products.map((product) => {
           const {
             id,
             name,
             images = [],
             salePrice,
             colorVariationsResponses = [],
-          } = p;
+          } = product;
 
-          let imageUrl = images[0] || ""; // Ensure a fallback
+          let imageUrl = images[0] || "";
           let hoverImageUrl = images[1] || "";
 
           // Determine the color variation to show
@@ -75,69 +87,94 @@ const ProductGrid = () => {
             }
           }
 
+          const isInWishlist = wishListItem?.find(
+            (i) => i.colorId == colorVariation?.id && i.sizeId === null
+          );
+
           return (
-            <Link
-              className="group relative border border-gray-200 p-4 sm:p-6"
-              to={`/products/${id}`}
+            <motion.div
               key={id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="group"
             >
-              <div className="relative">
-                <img
-                  src={imageUrl}
-                  alt={name}
-                  className="aspect-square rounded-lg bg-gray-200 object-cover group-hover:opacity-75"
-                />
-                {hoverImageUrl && (
+              <Link
+                to={`/products/${id}`}
+                className="block overflow-hidden rounded-xl bg-gray-50 shadow-sm hover:shadow-md transition-shadow duration-300"
+              >
+                <div className="relative aspect-square overflow-hidden">
+                  {/* Main Image */}
                   <img
-                    src={hoverImageUrl}
-                    alt=""
-                    className="absolute inset-0 h-full w-full rounded-lg object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                    src={imageUrl}
+                    alt={name}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
-                )}
-                <button
-                  className="absolute right-0 bottom-4 text-xl text-white bg-black bg-opacity-50 p-2 rounded-full transition-colors duration-300 hover:bg-opacity-70"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    if (!user?.authenticated) {
-                      navigate("/login");
-                      return;
-                    }
 
-                    const isInWishlist = wishListItem?.find(
-                      (i) =>
-                        i.colorId == colorVariation?.id && i.sizeId === null
-                    );
-
-                    if (isInWishlist) {
-                      deleteItem({ id: colorVariation.id, data: false });
-                    } else {
-                      addToWishList({ colorVariationId: colorVariation.id });
-                    }
-                  }}
-                >
-                  {wishListItem?.find(
-                    (i) => i.colorId == colorVariation?.id && i.sizeId === null
-                  ) ? (
-                    <FaHeart className="text-black" />
-                  ) : (
-                    <FaRegHeart />
+                  {/* Hover Image */}
+                  {hoverImageUrl && (
+                    <img
+                      src={hoverImageUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                    />
                   )}
-                </button>
-              </div>
-              <div className="pt-10">
-                <h3 className="text-lg font-medium text-gray-900">
-                  <span>{name}</span>
-                </h3>
-                <p className="mt-4 text-base font-semibold text-gray-900">
-                  ${salePrice}
-                </p>
-              </div>
-            </Link>
+
+                  {/* Quick View Button */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 flex items-center justify-center opacity-0 transition-all duration-300 group-hover:bg-opacity-20 group-hover:opacity-100">
+                    <div className="transform translate-y-4 transition-transform duration-300 group-hover:translate-y-0">
+                      <span className="inline-flex items-center px-4 py-2 bg-white text-black text-sm font-medium rounded-full shadow-lg">
+                        <FaSearch className="mr-2" /> Quick View
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Wishlist Button */}
+                  <button
+                    className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-md z-10 transition-transform duration-300 hover:scale-110"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+
+                      if (!user?.authenticated) {
+                        navigate("/login");
+                        return;
+                      }
+
+                      if (isInWishlist) {
+                        deleteItem({ id: colorVariation.id, data: false });
+                      } else {
+                        addToWishList({ colorVariationId: colorVariation.id });
+                      }
+                    }}
+                  >
+                    {isInWishlist ? (
+                      <FaHeart className="text-red-500" size={18} />
+                    ) : (
+                      <FaRegHeart className="text-gray-700" size={18} />
+                    )}
+                  </button>
+                </div>
+
+                {/* Product Info */}
+                <div className="p-4">
+                  <h3 className="font-medium text-gray-900 mb-1 truncate">
+                    {name}
+                  </h3>
+                  <p className="text-lg font-bold text-black">
+                    ${parseFloat(salePrice).toFixed(2)}
+                  </p>
+                </div>
+              </Link>
+            </motion.div>
           );
         })}
       </div>
-      <Pagination pageCount={totalPages} page={pageable.pageNumber} />
+
+      {/* Pagination */}
+      <div className="mt-12">
+        <Pagination pageCount={totalPages} page={pageable.pageNumber} />
+      </div>
     </>
   );
 };
